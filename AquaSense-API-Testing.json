@@ -1,0 +1,189 @@
+{
+  "info": {
+    "_postman_id": "cd665049-4ca4-44b6-9b9e-6a5aa48d0865",
+    "name": "AquaSense API Testing",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json",
+    "_exporter_id": "41639278"
+  },
+  "item": [
+    {
+      "name": "TC01 - Valid Login",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "exec": [
+              "pm.test(\"Login successful\", function () {\r",
+              "    pm.response.to.have.status(200);\r",
+              "});\r",
+              "\r",
+              "pm.test(\"Auth token exists\", function () {\r",
+              "    pm.expect(pm.response.json().token).to.exist;\r",
+              "});"
+            ],
+            "type": "text/javascript",
+            "packages": {},
+            "requests": {}
+          }
+        }
+      ],
+      "request": {
+        "method": "POST",
+        "header": [],
+        "body": {
+          "mode": "raw",
+          "raw": "{\r\n  \"username\": \"testuser\",\r\n  \"password\": \"test123\"\r\n}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        },
+        "url": {
+          "raw": "https://e52c6ebd-65b7-4af5-a779-10df853ce0e5.mock.pstmn.io/login",
+          "protocol": "https",
+          "host": [
+            "e52c6ebd-65b7-4af5-a779-10df853ce0e5",
+            "mock",
+            "pstmn",
+            "io"
+          ],
+          "path": [
+            "login"
+          ]
+        }
+      },
+      "response": [
+        {
+          "name": "succesfull login",
+          "originalRequest": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "",
+                "value": "",
+                "type": "text",
+                "disabled": true
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "http://localhost:3000/login",
+              "protocol": "http",
+              "host": [
+                "localhost"
+              ],
+              "port": "3000",
+              "path": [
+                "login"
+              ]
+            }
+          },
+          "status": "OK",
+          "code": 200,
+          "_postman_previewlanguage": null,
+          "header": [
+            {
+              "key": "Content-Type:",
+              "value": " application/json",
+              "description": "",
+              "type": "text"
+            }
+          ],
+          "cookie": [],
+          "body": "{\r\n  \"token\": \"mock_access_token_123\",\r\n  \"message\": \"Login successful\"\r\n}"
+        }
+      ]
+    },
+    {
+      "name": "TC02 - Device status",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "exec": [
+              "pm.test(\"Status code is 200\", function () {\r",
+              "    pm.response.to.have.status(200);\r",
+              "});\r",
+              "\r",
+              "pm.test(\"Tank level is valid\", function () {\r",
+              "    const data = pm.response.json();\r",
+              "    pm.expect(data.level_percent).to.be.within(0, 100);\r",
+              "});\r",
+              "\r",
+              "pm.test(\"Pump state is valid\", function () {\r",
+              "    const data = pm.response.json();\r",
+              "    pm.expect([\"on\", \"off\"]).to.include(data.pump_state);\r",
+              "});\r",
+              "\r",
+              "pm.test(\"Last seen is present\", function () {\r",
+              "    const data = pm.response.json();\r",
+              "    pm.expect(data.last_seen).to.exist;\r",
+              "});"
+            ],
+            "type": "text/javascript",
+            "packages": {},
+            "requests": {}
+          }
+        }
+      ],
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": {
+          "raw": "https://e52c6ebd-65b7-4af5-a779-10df853ce0e5.mock.pstmn.io/device/123/status",
+          "protocol": "https",
+          "host": [
+            "e52c6ebd-65b7-4af5-a779-10df853ce0e5",
+            "mock",
+            "pstmn",
+            "io"
+          ],
+          "path": [
+            "device",
+            "123",
+            "status"
+          ]
+        }
+      },
+      "response": [
+        {
+          "name": "Device Status Success",
+          "originalRequest": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "https://e52c6ebd-65b7-4af5-a779-10df853ce0e5.mock.pstmn.io/device/123/status",
+              "protocol": "https",
+              "host": [
+                "e52c6ebd-65b7-4af5-a779-10df853ce0e5",
+                "mock",
+                "pstmn",
+                "io"
+              ],
+              "path": [
+                "device",
+                "123",
+                "status"
+              ]
+            }
+          },
+          "status": "OK",
+          "code": 200,
+          "_postman_previewlanguage": null,
+          "header": null,
+          "cookie": [],
+          "body": "{\r\n  \"level_percent\": 55,\r\n  \"pump_state\": \"off\",\r\n  \"last_seen\": \"2026-11-02T20:00:00Z\"\r\n}"
+        }
+      ]
+    }
+  ]
+}
