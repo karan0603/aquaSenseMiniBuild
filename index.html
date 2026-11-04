@@ -1,0 +1,175 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Tank Level Dashboard</title>
+<style>
+:root{
+  box-sizing:border-box;
+  padding-top:env(safe-area-inset-top,0px);
+  padding-bottom:env(safe-area-inset-bottom,0px);
+  --bg:#f4f6f9; --card:#ffffff; --text:#1c2430; --muted:#6a7584; --border:#e1e6ee;
+  --water:#2d8cf0; --ok:#1f9d55; --danger:#d93636; --danger-bg:#fdeaea; --warn:#b7791f; --warn-bg:#fff4dd;
+}
+@media (prefers-color-scheme: dark){
+  :root:not([data-theme="light"]){
+    --bg:#10151c; --card:#18202b; --text:#e8edf4; --muted:#93a0b1; --border:#273241;
+    --water:#4aa3ff; --ok:#3ccf7e; --danger:#ff6b6b; --danger-bg:#3a1c1f; --warn:#f0b64a; --warn-bg:#3a2e15;
+  }
+}
+:root[data-theme="dark"]{
+  --bg:#10151c; --card:#18202b; --text:#e8edf4; --muted:#93a0b1; --border:#273241;
+  --water:#4aa3ff; --ok:#3ccf7e; --danger:#ff6b6b; --danger-bg:#3a1c1f; --warn:#f0b64a; --warn-bg:#3a2e15;
+}
+html{scroll-padding-top:env(safe-area-inset-top,0px)}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--text);font-family:system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;line-height:1.4}
+main{max-width:860px;margin:0 auto;padding:20px 16px 32px}
+h1{font-size:1.4rem;margin:0 0 2px}
+.sub{color:var(--muted);font-size:.9rem;margin-bottom:16px}
+.alert{display:none;border-radius:10px;padding:12px 14px;margin-bottom:16px;font-weight:600}
+.alert.danger{display:block;background:var(--danger-bg);color:var(--danger);border:1px solid var(--danger)}
+.alert.warn{display:block;background:var(--warn-bg);color:var(--warn);border:1px solid var(--warn)}
+.grid{display:grid;grid-template-columns:200px 1fr;gap:16px}
+@media (max-width:620px){.grid{grid-template-columns:1fr}}
+.card{background:var(--card);border:1px solid var(--border);border-radius:14px;padding:16px}
+.tank-wrap{display:flex;flex-direction:column;align-items:center;justify-content:center}
+.tank{position:relative;width:110px;height:200px;border:3px solid var(--muted);border-radius:12px 12px 18px 18px;overflow:hidden}
+.fill{position:absolute;left:0;right:0;bottom:0;height:0;background:var(--water);opacity:.85;transition:height .8s ease,background .3s}
+.fill.low{background:var(--danger)}
+.tank .mark{position:absolute;left:0;right:0;border-top:2px dashed var(--danger);bottom:20%}
+.big{font-size:2.2rem;font-weight:700;margin-top:10px}
+.label{color:var(--muted);font-size:.8rem;text-transform:uppercase;letter-spacing:.04em}
+.stats{display:grid;grid-template-columns:repeat(3,1fr);gap:12px}
+@media (max-width:420px){.stats{grid-template-columns:1fr}}
+.stat .val{font-size:1.7rem;font-weight:700}
+.stat .when{color:var(--muted);font-size:.8rem}
+.chart-card{margin-top:16px}
+.scroll{overflow-x:auto}
+svg{display:block;width:100%;min-width:480px;height:auto}
+svg text{fill:var(--muted);font-size:11px}
+svg .grid-line{stroke:var(--border)}
+svg .line{fill:none;stroke:var(--water);stroke-width:2.5}
+svg .dot{fill:var(--water)}
+svg .dot.low{fill:var(--danger)}
+svg .thresh{stroke:var(--danger);stroke-dasharray:5 4}
+svg .thresh-label{fill:var(--danger)}
+</style>
+</head>
+<body>
+<main>
+  <h1>Tank Level Dashboard</h1>
+  <div class="sub" id="updated"></div>
+
+  <div id="alert" class="alert" role="alert"></div>
+
+  <div class="grid">
+    <div class="card tank-wrap">
+      <div class="label">Current level</div>
+      <div class="tank"><div class="fill" id="fill"></div><div class="mark"></div></div>
+      <div class="big" id="current">--%</div>
+    </div>
+
+    <div class="card">
+      <div class="stats">
+        <div class="stat"><div class="label">Today's minimum</div><div class="val" id="min">--</div><div class="when" id="minWhen"></div></div>
+        <div class="stat"><div class="label">Today's maximum</div><div class="val" id="max">--</div><div class="when" id="maxWhen"></div></div>
+        <div class="stat"><div class="label">Status</div><div class="val" id="status">--</div><div class="when">Alert below 20%</div></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="card chart-card">
+    <div class="label" style="margin-bottom:8px">Level over time</div>
+    <div class="scroll"><div id="chart"></div></div>
+  </div>
+</main>
+
+<script>
+const ALERT_THRESHOLD = 20;
+
+const data = [
+  {"timestamp":"2026-11-02T06:00:00","level_percent":78},
+  {"timestamp":"2026-11-02T08:00:00","level_percent":64},
+  {"timestamp":"2026-11-02T10:00:00","level_percent":51},
+  {"timestamp":"2026-11-02T12:00:00","level_percent":37},
+  {"timestamp":"2026-11-02T14:00:00","level_percent":24},
+  {"timestamp":"2026-11-02T16:00:00","level_percent":18},
+  {"timestamp":"2026-11-02T18:00:00","level_percent":42},
+  {"timestamp":"2026-11-02T20:00:00","level_percent":55}
+];
+
+const $ = id => document.getElementById(id);
+const fmtTime = ts => new Date(ts).toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'});
+
+function render(readings) {
+  const sorted = [...readings].sort((a, b) => new Date(a.timestamp) - new Date(b.timestamp));
+  const latest = sorted[sorted.length - 1];
+
+  // "Today" = the calendar day of the latest reading in the data
+  const day = latest.timestamp.slice(0, 10);
+  const today = sorted.filter(r => r.timestamp.startsWith(day));
+  const min = today.reduce((a, b) => b.level_percent < a.level_percent ? b : a);
+  const max = today.reduce((a, b) => b.level_percent > a.level_percent ? b : a);
+
+  const cur = latest.level_percent;
+  const isLow = cur < ALERT_THRESHOLD;
+
+  $('updated').textContent = 'Last reading: ' + new Date(latest.timestamp).toLocaleString([], {dateStyle:'medium', timeStyle:'short'});
+  $('current').textContent = cur + '%';
+  $('fill').style.height = cur + '%';
+  $('fill').classList.toggle('low', isLow);
+  $('min').textContent = min.level_percent + '%';
+  $('minWhen').textContent = 'at ' + fmtTime(min.timestamp);
+  $('max').textContent = max.level_percent + '%';
+  $('maxWhen').textContent = 'at ' + fmtTime(max.timestamp);
+
+  const st = $('status');
+  st.textContent = isLow ? 'Low' : 'Normal';
+  st.style.color = isLow ? 'var(--danger)' : 'var(--ok)';
+
+  const alertEl = $('alert');
+  alertEl.className = 'alert';
+  if (isLow) {
+    alertEl.classList.add('danger');
+    alertEl.textContent = '⚠ Low level alert: the tank is at ' + cur + '%, below the ' + ALERT_THRESHOLD + '% threshold.';
+  } else if (min.level_percent < ALERT_THRESHOLD) {
+    alertEl.classList.add('warn');
+    alertEl.textContent = 'Heads up: the level dropped to ' + min.level_percent + '% at ' + fmtTime(min.timestamp) + ' today, but has since recovered to ' + cur + '%.';
+  }
+
+  drawChart(sorted);
+}
+
+function drawChart(rows) {
+  const W = 720, H = 240, m = {t:16, r:16, b:30, l:36};
+  const iw = W - m.l - m.r, ih = H - m.t - m.b;
+  const t0 = new Date(rows[0].timestamp).getTime();
+  const t1 = new Date(rows[rows.length - 1].timestamp).getTime();
+  const x = ts => m.l + (t1 === t0 ? iw / 2 : (new Date(ts).getTime() - t0) / (t1 - t0) * iw);
+  const y = v => m.t + ih - (v / 100) * ih;
+
+  let s = '<svg viewBox="0 0 ' + W + ' ' + H + '" role="img" aria-label="Tank level over time">';
+  [0, 25, 50, 75, 100].forEach(v => {
+    s += '<line class="grid-line" x1="' + m.l + '" x2="' + (W - m.r) + '" y1="' + y(v) + '" y2="' + y(v) + '"/>';
+    s += '<text x="' + (m.l - 6) + '" y="' + (y(v) + 4) + '" text-anchor="end">' + v + '%</text>';
+  });
+  s += '<line class="thresh" x1="' + m.l + '" x2="' + (W - m.r) + '" y1="' + y(ALERT_THRESHOLD) + '" y2="' + y(ALERT_THRESHOLD) + '"/>';
+  s += '<text class="thresh-label" x="' + (W - m.r - 4) + '" y="' + (y(ALERT_THRESHOLD) - 5) + '" text-anchor="end">Alert 20%</text>';
+
+  const pts = rows.map(r => x(r.timestamp) + ',' + y(r.level_percent)).join(' ');
+  s += '<polyline class="line" points="' + pts + '"/>';
+  rows.forEach(r => {
+    const low = r.level_percent < ALERT_THRESHOLD;
+    s += '<circle class="dot' + (low ? ' low' : '') + '" cx="' + x(r.timestamp) + '" cy="' + y(r.level_percent) + '" r="4"><title>' + fmtTime(r.timestamp) + ': ' + r.level_percent + '%</title></circle>';
+    s += '<text x="' + x(r.timestamp) + '" y="' + (H - 10) + '" text-anchor="middle">' + fmtTime(r.timestamp) + '</text>';
+  });
+  s += '</svg>';
+  $('chart').innerHTML = s;
+}
+
+render(data);
+</script>
+</body>
+</html>
